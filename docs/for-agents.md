@@ -25,7 +25,8 @@ Use the `bellwether` MCP server when your harness has it:
 Tool names may come namespaced (`mcp__bellwether__panel_set`) and may be deferred: look for a tool
 whose name ends in `panel_set`.
 
-Without the MCP, write the file yourself: `~/.local/state/bellwether/<HC_TERMINAL_ID>/panel.json`.
+Without the MCP, pipe the document to `bellwether-panel-mcp publish`, which publishes it as
+`panel_set` would. Or write the file yourself: `~/.local/state/bellwether/<HC_TERMINAL_ID>/panel.json`.
 Overwrite it whole: write a temporary file and rename it over the old one.
 
 ## The panel

@@ -94,6 +94,22 @@ Code, Codex, opencode and Gemini CLI — publishes its live panel to Bellwether 
 the `bellwether` MCP is registered, every flow work shows its phase, its MRs, the decision it is
 waiting on and the buttons to answer it, on its console and on the board.
 
+Optional, for flow's own refreshes between the agent's publications: add
+`- publish_cmd: ~/.local/bin/bellwether-panel-mcp publish` under `## panel` in a git-ignored FLOW file.
+
+## Publishing without the MCP
+
+Any agent connected to the `bellwether` MCP inside a Herdr console is told, when it connects, to
+publish its panel; no workflow is needed. Anything that cannot call an MCP tool (a hook, a script, a
+CI step running in the console) can pipe a panel document to the shell command:
+
+```sh
+my-status-renderer | ~/.local/bin/bellwether-panel-mcp publish [--source NAME]
+```
+
+It publishes for the console in `HC_TERMINAL_ID`, exactly as `panel_set` would. Outside a Herdr
+console it does nothing and succeeds.
+
 ## Develop
 
 Edit here, then run `scripts/sync.sh` again: it copies the mods, the layout and the theme into
