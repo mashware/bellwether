@@ -3,9 +3,8 @@
 Config for the `flow` plugin in this repo; the `/flow:*` commands read it in their step 0.
 Absent key = default / auto-discover. Every key and default: the plugin's `examples/FLOW.template.md`.
 
-Bellwether is the project's name. The repository has no remote yet: the `tracker` and `git` keys below
-assume it will live on GitHub under `mashware`, like the user's other personal projects. Until then
-a work starts without a ticket.
+Bellwether lives on GitHub at `mashware/bellwether`, like the user's other personal projects: the
+`tracker` and `git` keys below point there.
 
 ## tracker
 - tool: gh
