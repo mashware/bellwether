@@ -1,0 +1,12 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+# panel-contract started as a copy of the author's earlier terminal (GPL-3.0-only); the workspace keeps that licence.
+license = "GPL-3.0-only"
+
+[profile.release]
+strip = true

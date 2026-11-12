@@ -1,0 +1,9 @@
+[package]
+name = "bellwether-panel-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+panel-contract = { path = "../panel-contract" }
+serde_json = "1"

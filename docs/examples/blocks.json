@@ -1,0 +1,21 @@
+{
+  "v": 1,
+  "phase": "build",
+  "attention": "wait",
+  "lines": [
+    {"text": "Profile picker for the inbox", "style": "title"},
+    "",
+    {"text": "MRs", "style": "section", "summary": "2/4 merged", "key": "mrs"},
+    {"text": "profile selector", "mark": "done", "ref": "#1", "link": "https://gitlab.com/acme/app/-/merge_requests/62", "key": "mr-1"},
+    {"text": "inbox and search", "mark": "current", "ref": "#3", "link": "https://gitlab.com/acme/app/-/merge_requests/64", "key": "mr-3"},
+    {"text": "└ pipeline ✓ · 0/1 approvals · 2 threads", "mark": "info", "indent": 4, "key": "mr-3-state"},
+    {"text": "settings and docs", "mark": "pending", "ref": "#4", "key": "mr-4"},
+    "",
+    {"text": "Plan #3", "style": "section", "summary": "3/5", "key": "plan"},
+    {"text": "counter columns + migration · repository query", "mark": "done", "ref": "1–3", "key": "steps-done"},
+    {"text": "expose both counters on the endpoint", "mark": "current", "ref": "4", "key": "step-4"},
+    {"text": "search ranking", "mark": "pending", "ref": "5", "key": "step-5"},
+    "",
+    {"text": "confirm the MR body before I create it", "mark": "wait", "ref": "Decision", "key": "decision"}
+  ]
+}

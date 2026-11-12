@@ -1,0 +1,20 @@
+[package]
+name = "panel-contract"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# Already compiled in the tree as a knock-on from egui (through `ahash`), and **with these very
+# features**: asking it for one more would force it to recompile. The only one that would be of any
+# use is the one that turns its error into an `io::Error`, and that is done by hand in two lines.
+getrandom = "0.3"
+
+# The contract has seven optional fields and lines that are a string **or** an object, and whatever
+# is not understood has to be tolerated field by field: writing that by hand would mean rewriting a
+# JSON parser with more bugs in it.
+# **It is not free, and that is worth knowing**: although `serde` was already in the tree as a
+# knock-on from the terminal engine, this adds four packages that were not — `serde_json`,
+# `serde_core`, `itoa` and `zmij`. It is paid for because reading someone else's file tolerantly is
+# exactly what this crate exists to do.
+serde_json = "1"

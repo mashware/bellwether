@@ -1,0 +1,10 @@
+/target/
+/.worktrees/
+
+# Written by Herdr into every mod folder it loads; regenerated on each start.
+gpui-kit.d.ts
+jsconfig.json
+*.error
+
+# Local code-search index.
+/.domain-memory/
