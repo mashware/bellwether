@@ -40,16 +40,55 @@ A card's column follows one fixed rule, first match wins, and nothing in it is g
 Waiting for you is ordered by `attention_since`, oldest first, and a card warms up after 5 minutes
 and more after 15.
 
-## Install and develop
+## Install
+
+You need the [Herdr](https://herdr.dev) desktop app, `git` and a Rust toolchain
+([rustup](https://rustup.rs) picks the version this repository pins).
 
 ```sh
+git clone https://github.com/mashware/bellwether
+cd bellwether
+
+# The mods, the layout and its theme, into ~/.config/herdr-app/
 scripts/sync.sh
 herdr-app do layout.switch --name bellwether
+
+# The MCP server agents publish through
+cargo build --release -p bellwether-panel-mcp
+install -m 755 target/release/bellwether-panel-mcp ~/.local/bin/
 ```
 
-Edit here, then run `scripts/sync.sh` again: it copies the mods and the layout into
-`~/.config/herdr-app/` and runs `herdr-app check` on each mod. `ctrl-shift-l` switches back to
-Herdr's own layout.
+Then register the server with your agents:
+
+- **Claude Code**: `claude mcp add -s user bellwether -- ~/.local/bin/bellwether-panel-mcp`
+- **Codex**, in `~/.codex/config.toml` (Codex only passes the variables it is told to, and the
+  server needs Herdr's `HC_TERMINAL_ID` to know its console):
+
+  ```toml
+  [mcp_servers.bellwether]
+  command = "/home/<you>/.local/bin/bellwether-panel-mcp"
+  env_vars = ["HC_TERMINAL_ID", "BELLWETHER_STATE"]
+  ```
+
+Agent sessions started before the server was registered do not see it: restart them.
+`ctrl-shift-l` switches back to Herdr's own layout. The layout sets its own terminal colors
+(`themes/bellwether.json`, base16 Twilight); remove its `"theme"` line to keep yours.
+
+To update: `git pull`, run `scripts/sync.sh` again, rebuild and reinstall the server, and restart
+the agent sessions.
+
+## Works with flow
+
+[flow](https://github.com/mashware/flow-workflows) — guided feature and bug workflows for Claude
+Code, Codex, opencode and Gemini CLI — publishes its live panel to Bellwether with no setup: once
+the `bellwether` MCP is registered, every flow work shows its phase, its MRs, the decision it is
+waiting on and the buttons to answer it, on its console and on the board.
+
+## Develop
+
+Edit here, then run `scripts/sync.sh` again: it copies the mods, the layout and the theme into
+`~/.config/herdr-app/` and runs `herdr-app check` on each mod. `scripts/check-mods.sh` checks the
+mods without installing them; `cargo test --workspace` runs the Rust side.
 
 ## Licence
 
