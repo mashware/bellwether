@@ -1,0 +1,42 @@
+# Builds the MCP server for each platform when a version tag is pushed (`git tag v0.1.0 && git push
+# origin v0.1.0`) and attaches the binaries to that GitHub release, which is what install.sh downloads.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-24.04, target: x86_64-unknown-linux-gnu }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu }
+          - { os: macos-14, target: aarch64-apple-darwin }
+          - { os: macos-13, target: x86_64-apple-darwin }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      # rustup reads rust-toolchain.toml and installs the pinned compiler.
+      - run: rustup show active-toolchain || rustup toolchain install
+      - run: cargo test --workspace --locked
+      - run: cargo build --release --locked -p bellwether-panel-mcp
+      - name: Package
+        run: |
+          mkdir dist
+          name=bellwether-panel-mcp-${{ matrix.target }}.tar.gz
+          tar -czf "dist/$name" -C target/release bellwether-panel-mcp
+          (cd dist && { sha256sum "$name" 2>/dev/null || shasum -a 256 "$name"; } > "$name.sha256")
+      # With the first-party gh CLI rather than a third-party action, since this job can write to
+      # the repository. Every build job may be the first to reach the release, so creating it is
+      # allowed to fail when another job already did.
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes || true
+          gh release upload "$GITHUB_REF_NAME" dist/* --clobber

@@ -42,40 +42,50 @@ and more after 15.
 
 ## Install
 
-You need the [Herdr](https://herdr.dev) desktop app, `git` and a Rust toolchain
-([rustup](https://rustup.rs) picks the version this repository pins).
+With the [Herdr](https://herdr.dev) desktop app installed, on Linux or macOS:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/mashware/bellwether/main/install.sh | sh
+```
+
+That is all. The script downloads the MCP server for your platform from the latest release into
+`~/.local/bin` and the mods, the layout and its theme into `~/.config/herdr-app/`; registers the
+server with Claude Code and Codex when they are installed; and switches Herdr to the layout
+(`ctrl-shift-l` switches back). Restart your agent sessions afterwards so they load the server. Run
+it again to update. Nothing is cloned and Rust is not needed.
+
+The layout brings its own terminal colors (`themes/bellwether.json`, base16 Twilight): remove the
+`"theme"` line from `~/.config/herdr-app/layouts/bellwether.json` to keep yours.
+
+<details>
+<summary>From source</summary>
+
+With `git` and a Rust toolchain ([rustup](https://rustup.rs) picks the version this repository
+pins):
 
 ```sh
 git clone https://github.com/mashware/bellwether
 cd bellwether
-
-# The mods, the layout and its theme, into ~/.config/herdr-app/
 scripts/sync.sh
 herdr-app do layout.switch --name bellwether
-
-# The MCP server agents publish through
 cargo build --release -p bellwether-panel-mcp
 install -m 755 target/release/bellwether-panel-mcp ~/.local/bin/
+claude mcp add -s user bellwether -- ~/.local/bin/bellwether-panel-mcp
 ```
 
-Then register the server with your agents:
+For Codex, add to `~/.codex/config.toml` (Codex passes only the variables it is told to, and the
+server needs Herdr's `HC_TERMINAL_ID`):
 
-- **Claude Code**: `claude mcp add -s user bellwether -- ~/.local/bin/bellwether-panel-mcp`
-- **Codex**, in `~/.codex/config.toml` (Codex only passes the variables it is told to, and the
-  server needs Herdr's `HC_TERMINAL_ID` to know its console):
-
-  ```toml
-  [mcp_servers.bellwether]
-  command = "/home/<you>/.local/bin/bellwether-panel-mcp"
-  env_vars = ["HC_TERMINAL_ID", "BELLWETHER_STATE"]
-  ```
-
-Agent sessions started before the server was registered do not see it: restart them.
-`ctrl-shift-l` switches back to Herdr's own layout. The layout sets its own terminal colors
-(`themes/bellwether.json`, base16 Twilight); remove its `"theme"` line to keep yours.
+```toml
+[mcp_servers.bellwether]
+command = "/home/<you>/.local/bin/bellwether-panel-mcp"
+env_vars = ["HC_TERMINAL_ID", "BELLWETHER_STATE"]
+```
 
 To update: `git pull`, run `scripts/sync.sh` again, rebuild and reinstall the server, and restart
 the agent sessions.
+
+</details>
 
 ## Works with flow
 
@@ -88,7 +98,9 @@ waiting on and the buttons to answer it, on its console and on the board.
 
 Edit here, then run `scripts/sync.sh` again: it copies the mods, the layout and the theme into
 `~/.config/herdr-app/` and runs `herdr-app check` on each mod. `scripts/check-mods.sh` checks the
-mods without installing them; `cargo test --workspace` runs the Rust side.
+mods without installing them; `cargo test --workspace` runs the Rust side. A release is a version
+tag: `git tag v0.1.0 && git push origin v0.1.0` builds the server for Linux and macOS and attaches
+it to the GitHub release that `install.sh` downloads.
 
 ## Licence
 
