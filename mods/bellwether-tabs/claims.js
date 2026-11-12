@@ -87,6 +87,7 @@ export class Claims {
     cx.timer.after(4000, () => {
       if (this.now[terminal] !== "wait") return; // answered meanwhile
       if (agent()?.status === "blocked") return;   // Herdr is already saying it
+      if (agent()?.status === "working") return;   // it carried on: nobody is waiting for you
       this.fire(terminal, att);
     });
   }

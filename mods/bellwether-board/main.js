@@ -46,9 +46,11 @@ function linkLabel(url) {
 const projectKey = (root) => root.replaceAll("%", "%25").replaceAll("/", "%2F");
 
 // The column a card goes in. A wait never goes stale: a console that waits publishes nothing.
+// But a program that tells Herdr it is working is not waiting for you, whatever its panel still
+// says: a producer that asked, got its answer and carried on may not have cleared its `wait` yet.
 function columnOf(c) {
   const a = c.doc?.attention;
-  if (a === "wait") return "wait";
+  if (a === "wait" && c.status !== "working") return "wait";
   if (a === "block") return "block";
   if (a === "done" || c.status === "done") return "done";
   if (c.status === "blocked") return "wait"; // the program itself reported it needs you
