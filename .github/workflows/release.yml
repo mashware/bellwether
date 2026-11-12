@@ -28,7 +28,15 @@ jobs:
       - name: Package
         run: |
           mkdir dist
-          tar -czf dist/bellwether-panel-mcp-${{ matrix.target }}.tar.gz -C target/release bellwether-panel-mcp
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*
+          name=bellwether-panel-mcp-${{ matrix.target }}.tar.gz
+          tar -czf "dist/$name" -C target/release bellwether-panel-mcp
+          (cd dist && { sha256sum "$name" 2>/dev/null || shasum -a 256 "$name"; } > "$name.sha256")
+      # With the first-party gh CLI rather than a third-party action, since this job can write to
+      # the repository. Every build job may be the first to reach the release, so creating it is
+      # allowed to fail when another job already did.
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes || true
+          gh release upload "$GITHUB_REF_NAME" dist/* --clobber

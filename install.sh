@@ -20,8 +20,14 @@ esac
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-# The server, from the latest release.
-curl -fsSL "https://github.com/$repo/releases/latest/download/bellwether-panel-mcp-$target.tar.gz" | tar -xz -C "$tmp"
+# The server, from the latest release, checked against the checksum published beside it.
+asset=bellwether-panel-mcp-$target.tar.gz
+curl -fsSL -o "$tmp/$asset" "https://github.com/$repo/releases/latest/download/$asset"
+curl -fsSL -o "$tmp/$asset.sha256" "https://github.com/$repo/releases/latest/download/$asset.sha256"
+if command -v sha256sum >/dev/null 2>&1; then (cd "$tmp" && sha256sum -c "$asset.sha256" >/dev/null)
+else (cd "$tmp" && shasum -a 256 -c "$asset.sha256" >/dev/null); fi \
+  || { echo "bellwether: the download does not match its checksum" >&2; exit 1; }
+tar -xzf "$tmp/$asset" -C "$tmp"
 mkdir -p "$bin"
 # Copied beside and renamed over, so a running server is not hit with "text file busy".
 cp "$tmp/bellwether-panel-mcp" "$bin/.bellwether-panel-mcp.new"
