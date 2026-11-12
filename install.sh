@@ -1,8 +1,9 @@
 #!/bin/sh
 # Installs Bellwether without cloning anything or needing Rust:
 #   curl -fsSL https://raw.githubusercontent.com/mashware/bellwether/main/install.sh | sh
-# It puts the MCP server in ~/.local/bin, the mods, layout and theme in Herdr's folder, and tells
-# you how to register the server with your agents. Run it again to update.
+# It puts the MCP server in ~/.local/bin and the mods, layout and theme in Herdr's folder, registers
+# the server with Claude Code and Codex when they are installed, and switches Herdr to the layout.
+# Run it again to update.
 set -eu
 
 repo=mashware/bellwether
@@ -47,13 +48,28 @@ done
 cp "$src"/layouts/*.json "$app/layouts/"
 cp "$src"/themes/*.json "$app/themes/"
 
-echo "Bellwether $tag installed."
+# Register the server with the agents that are installed, unless it already is.
+if command -v claude >/dev/null 2>&1; then
+  if claude mcp get bellwether >/dev/null 2>&1; then echo "Claude Code: the bellwether server is already registered."
+  else claude mcp add -s user bellwether -- "$bin/bellwether-panel-mcp" >/dev/null && echo "Claude Code: registered the bellwether server."; fi
+fi
+codex_config="$HOME/.codex/config.toml"
+if command -v codex >/dev/null 2>&1 || [ -f "$codex_config" ]; then
+  if [ -f "$codex_config" ] && grep -q '^\[mcp_servers\.bellwether\]' "$codex_config"; then echo "Codex: the bellwether server is already registered."
+  else
+    mkdir -p "$(dirname "$codex_config")"
+    # Codex passes only the variables it is told to; the server needs Herdr's HC_TERMINAL_ID.
+    printf '\n[mcp_servers.bellwether]\ncommand = "%s"\nenv_vars = ["HC_TERMINAL_ID", "BELLWETHER_STATE"]\n' "$bin/bellwether-panel-mcp" >> "$codex_config"
+    echo "Codex: registered the bellwether server."
+  fi
+fi
+
+# Show it, when Herdr is running.
+if command -v herdr-app >/dev/null 2>&1 && herdr-app do layout.switch --name bellwether >/dev/null 2>&1; then
+  echo "Herdr: switched to the bellwether layout (ctrl-shift-l switches back)."
+else
+  echo "Herdr: open it and run  herdr-app do layout.switch --name bellwether"
+fi
+
 echo
-echo "Switch Herdr to it:   herdr-app do layout.switch --name bellwether"
-echo "Register the server:"
-echo "  Claude Code:  claude mcp add -s user bellwether -- $bin/bellwether-panel-mcp"
-echo "  Codex, in ~/.codex/config.toml:"
-echo "    [mcp_servers.bellwether]"
-echo "    command = \"$bin/bellwether-panel-mcp\""
-echo "    env_vars = [\"HC_TERMINAL_ID\", \"BELLWETHER_STATE\"]"
-echo "Then restart your agent sessions."
+echo "Bellwether $tag installed. Restart your agent sessions so they load the server."
