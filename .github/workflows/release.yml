@@ -5,6 +5,15 @@ name: release
 on:
   push:
     tags: ["v*"]
+  # Rebuilds an existing tag and fills in its release, e.g. after a platform's job failed.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing version tag to build and attach, e.g. v0.2.0"
+        required: true
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
 
 permissions:
   contents: write
@@ -14,22 +23,29 @@ jobs:
     strategy:
       matrix:
         include:
-          - { os: ubuntu-24.04, target: x86_64-unknown-linux-gnu }
-          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu }
-          - { os: macos-14, target: aarch64-apple-darwin }
-          - { os: macos-13, target: x86_64-apple-darwin }
+          - { os: ubuntu-24.04, target: x86_64-unknown-linux-gnu, native: true }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu, native: true }
+          - { os: macos-latest, target: aarch64-apple-darwin, native: true }
+          # GitHub retires its Intel macOS images one by one (macos-13 and macos-14 runs sat queued
+          # or were refused), so the Intel binary is cross-built on the Apple Silicon runner, whose
+          # SDK targets both. It cannot run there, so it is built but not tested.
+          - { os: macos-latest, target: x86_64-apple-darwin, native: false }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
       # rustup reads rust-toolchain.toml and installs the pinned compiler.
       - run: rustup show active-toolchain || rustup toolchain install
+      - run: rustup target add ${{ matrix.target }}
       - run: cargo test --workspace --locked
-      - run: cargo build --release --locked -p bellwether-panel-mcp
+        if: matrix.native
+      - run: cargo build --release --locked -p bellwether-panel-mcp --target ${{ matrix.target }}
       - name: Package
         run: |
           mkdir dist
           name=bellwether-panel-mcp-${{ matrix.target }}.tar.gz
-          tar -czf "dist/$name" -C target/release bellwether-panel-mcp
+          tar -czf "dist/$name" -C target/${{ matrix.target }}/release bellwether-panel-mcp
           (cd dist && { sha256sum "$name" 2>/dev/null || shasum -a 256 "$name"; } > "$name.sha256")
       # With the first-party gh CLI rather than a third-party action, since this job can write to
       # the repository. Every build job may be the first to reach the release, so creating it is
@@ -38,5 +54,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes || true
-          gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --generate-notes || true
+          gh release upload "$TAG" dist/* --clobber
