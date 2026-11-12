@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "bellwether-panel-mcp"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "panel-contract",
  "serde_json",
@@ -48,7 +48,7 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "panel-contract"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "getrandom",
  "serde_json",
