@@ -118,7 +118,8 @@ export default class Pane extends View {
       if (p.cwd) cx.spawn(async (cx) => { const root = await rootOf(p.cwd); if (root && this.cwd === p.cwd) { this.project = lastFolder(root); cx.notify(); } });
     }
     const open = Boolean(terminal) && p.focused && columnOpen();
-    const claim = ATT[this.attention];
+    // A program Herdr sees working is not waiting for you, whatever its panel still claims.
+    const claim = this.attention === "wait" && st === "working" ? null : ATT[this.attention];
     return h_flex().id(`pane-head-${pane}`).size_full().px(10).gap(8).items_center().bg(t.background)
       .when(bottom, el => el.border_t(1)).when(!bottom, el => el.border_b(1)).border_color(t.border)
       .text_size(12)

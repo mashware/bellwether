@@ -38,7 +38,7 @@ A full two-block example, read by the test suite so it cannot drift:
 | `v` | recommended | Contract version |
 | `updated_at` | no | What the producer says about when it published; read, not painted. The age comes from the file's date |
 | `phase` | no | What is running **now**. Free text, painted literally on the identity row |
-| `attention` | no | Whether this console claims you: `wait` (it is waiting for you), `block` (stuck on something else, not you), `done` (finished and nobody looked). Absent = claims nothing. The one field the app acts on: header symbol, tab, board and notifications |
+| `attention` | no | Whether this console claims you: `wait` (it is waiting for you), `block` (stuck on something else, not you), `done` (finished and nobody looked). Absent = claims nothing. The one field the app acts on: header symbol, tab, board and notifications. A `wait` is not shown while the console's program tells Herdr it is working: a program at work is not waiting for anyone, and a `wait` its producer forgot to clear must not keep claiming you |
 | `attention_since` | no | When the current `attention` started, in seconds since the Unix epoch. The board orders who waits for you by it and warms the cards that have waited longest; it is never painted as a number. The MCP keeps it: it stamps it when `attention` changes and keeps it while it does not, replacing whatever the agent wrote. A producer writing the file declares it itself |
 | `milestone` | no | The `id` of the milestone in the project's plan (see below) this console works on. The board hangs the console from it in the project's roadmap |
 | `deliverable` | no | The `id` of the deliverable inside that milestone |

@@ -111,7 +111,8 @@ export default class BellwetherPanel extends View {
 
     // The application's own rows: claim, stale, unreadable. Not hidden by header:false.
     const stale = this.mtime && (Date.now() - this.mtime) > (Number(doc?.stale_after_minutes) || 30) * 60000;
-    const claim = doc && ATTENTION[doc.attention];
+    // A program Herdr sees working is not waiting for you, whatever its panel still claims.
+    const claim = doc && !(doc.attention === "wait" && pane?.status === "working") && ATTENTION[doc.attention];
     if (claim) {
       const color = doc.attention === "wait" ? t.blocked : doc.attention === "block" ? t.ansi1 : t.done;
       const dimmed = stale && doc.attention !== "done";
