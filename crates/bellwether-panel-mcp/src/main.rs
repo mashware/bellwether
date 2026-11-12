@@ -27,9 +27,65 @@ const PROTOCOL_VERSION: &str = "2025-06-18";
 const MAX_REQUEST: usize = 2 * MAX_BYTES as usize;
 
 fn main() {
+    let arguments: Vec<String> = std::env::args().skip(1).collect();
+    if arguments.first().map(String::as_str) == Some("publish") {
+        std::process::exit(publish_command(&arguments[1..]));
+    }
     // Opened on the first call that needs it: listing the tools must work anywhere.
     let mut pane: Option<Pane> = None;
     bridge(std::io::stdin().lock(), std::io::stdout(), &mut pane);
+}
+
+/// `bellwether-panel-mcp publish [--source NAME]`: the `panel_set` of a shell. The document comes
+/// on stdin and is published for the console in `HC_TERMINAL_ID`, exactly as the MCP verb would.
+///
+/// It exists for producers that cannot call an MCP tool — `flow`'s hook re-renders the panel after
+/// every tool call and pipes it to `panel.publish_cmd`. Outside a Herdr console there is no pane to
+/// paint, so it reads nothing and succeeds: the same FLOW file works in any terminal.
+fn publish_command(arguments: &[String]) -> i32 {
+    let source = match arguments {
+        [] => "flow",
+        [flag, name] if flag == "--source" => name.as_str(),
+        _ => {
+            eprintln!("usage: bellwether-panel-mcp publish [--source NAME] < panel.json");
+            return 2;
+        }
+    };
+    if std::env::var("HC_TERMINAL_ID").unwrap_or_default().is_empty() {
+        return 0;
+    }
+    let mut pane = match Pane::of_this_console() {
+        Ok(pane) => pane,
+        Err(why) => {
+            eprintln!("bellwether-panel-mcp: {why}");
+            return 1;
+        }
+    };
+    match publish_from(std::io::stdin().lock(), source, &mut pane) {
+        Ok(()) => 0,
+        Err(why) => {
+            eprintln!("bellwether-panel-mcp: {why}");
+            1
+        }
+    }
+}
+
+/// Reads one document from `input` and publishes it on `pane`; a lossy publish still succeeds.
+fn publish_from(input: impl Read, source: &str, pane: &mut Pane) -> Result<(), String> {
+    let mut text = String::new();
+    input
+        .take(MAX_REQUEST as u64 + 1)
+        .read_to_string(&mut text)
+        .map_err(|failure| format!("reading the document failed ({failure})"))?;
+    if text.len() > MAX_REQUEST {
+        return Err("the document goes over the ceiling".to_owned());
+    }
+    let document: serde_json::Value =
+        serde_json::from_str(&text).map_err(|failure| format!("the document is not JSON ({failure})"))?;
+    match pane.publish(source, &document) {
+        Answered::Failed(why) => Err(why),
+        _ => Ok(()),
+    }
 }
 
 /// Answers messages until the input ends. Bytes are decoded per line, so one malformed message is
@@ -108,12 +164,41 @@ fn initialized(message: &serde_json::Value) -> serde_json::Value {
         .pointer("/params/protocolVersion")
         .and_then(serde_json::Value::as_str)
         .unwrap_or(PROTOCOL_VERSION);
-    serde_json::json!({
+    let mut answer = serde_json::json!({
         "protocolVersion": asked_for,
         "capabilities": {"tools": {}},
         "serverInfo": {"name": "bellwether panel", "version": env!("CARGO_PKG_VERSION")},
-    })
+    });
+    if inside_a_console() {
+        answer["instructions"] = serde_json::Value::from(INSTRUCTIONS);
+    }
+    answer
 }
+
+fn inside_a_console() -> bool {
+    std::env::var("HC_TERMINAL_ID").is_ok_and(|id| !id.is_empty())
+}
+
+/// **What every agent is told when it connects inside a Herdr console**, whatever harness or workflow
+/// it runs. The tools alone were not enough: a harness may defer them — listed by name, no schema —
+/// and an agent that never loads them publishes nothing, so the person watching sees an empty
+/// panel. Harnesses put these words in the agent's own instructions, which is the one place every
+/// agent reads. Outside a console the tools refuse, so nothing is said there.
+const INSTRUCTIONS: &str = "\
+This session runs in a Herdr console, and Bellwether shows the person a status panel for it, a \
+header on its pane and a card on a board of every console. It paints only what you publish: \
+publish nothing and the person sees an empty panel.
+
+- Publish with `panel_set` (`source`: your name or your workflow's) when you start a task, before \
+every long stretch and at every stop. The tools may be deferred: load them first.
+- Set `attention: \"wait\"` whenever you need the person (a question, an approval) and put the \
+question on a line marked `wait`; `block` when stuck on something else; `done` when finished. Leave \
+it out while you work, and republish without it as soon as it stops being true.
+- Between full publications, update lines by `key` with `panel_patch`. After a restart or a \
+compaction, `panel_get` before publishing again.
+- When a tool or workflow you run renders a panel document for you (JSON with `lines`), pass that \
+document to `panel_set` as it was printed. A copy written anywhere else does not reach the person.
+- When you read the project's roadmap, publish it with `plan_set`.";
 
 /// `a, b or c`, written from the vocabulary's own list.
 fn listed(words: &[&str]) -> String {
@@ -359,6 +444,45 @@ mod tests {
     fn ask(message: &str) -> serde_json::Value {
         let answered = answer(message, &mut None).expect("it deserved an answer");
         serde_json::from_str(&answered).expect("the answer is JSON")
+    }
+
+    #[test]
+    fn the_instructions_name_the_tools_they_ask_for() {
+        let tools = ask(r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#);
+        let names: Vec<&str> =
+            tools["result"]["tools"].as_array().expect("tools").iter().filter_map(|t| t["name"].as_str()).collect();
+        for asked in ["panel_set", "panel_patch", "panel_get", "plan_set"] {
+            assert!(INSTRUCTIONS.contains(&format!("`{asked}`")), "{asked} is not mentioned");
+            assert!(names.contains(&asked), "{asked} is mentioned but not served");
+        }
+    }
+
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("bellwether-publish-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        dir
+    }
+
+    /// **flow's hook pipes every render here**: what arrives on stdin is what the mods then read.
+    #[test]
+    fn a_document_on_stdin_is_published_as_panel_set_would() {
+        let dir = scratch("stdin");
+        let mut pane = Pane::at(dir.clone());
+        let document = r#"{"attention":"wait","lines":[{"key":"now","ref":"Now","text":"design","mark":"info"}]}"#;
+        publish_from(document.as_bytes(), "flow", &mut pane).expect("published");
+        let written: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(dir.join("panel.json")).expect("written")).expect("JSON");
+        assert_eq!(written["lines"][0]["text"], "design", "{written}");
+        assert!(written["attention_since"].is_u64(), "the server keeps the clock: {written}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_document_that_is_not_json_is_refused_and_nothing_is_written() {
+        let dir = scratch("garbage");
+        let mut pane = Pane::at(dir.clone());
+        assert!(publish_from("not json".as_bytes(), "flow", &mut pane).is_err());
+        assert!(!dir.join("panel.json").exists());
     }
 
     #[test]
