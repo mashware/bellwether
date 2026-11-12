@@ -160,7 +160,7 @@ export default class Board extends View {
         const summary = typeof l.summary === "string" ? [...clean(l.summary)].slice(0, 40).join("") : "";
         rows.push(h_flex().id(`h-${id}`).gap(6).items_center().cursor_pointer().when(rows.length > 0, (e) => e.mt(4))
           .hover((s) => s.text_color(t.accent))
-          .on_click((_e, cx) => { this.fold[id] = !closed; cx.notify(); })
+          .on_click((_e, cx) => { cx.stop_propagation(); this.fold[id] = !closed; cx.notify(); })
           .child(div().flex_none().text_size(10).text_color(t.dim).child(closed ? "▸" : "▾"))
           .child(div().min_w(0).truncate().font_semibold().child(text))
           .child(div().flex_1().min_w(10).h(1).bg(t.border))
@@ -176,11 +176,11 @@ export default class Board extends View {
         .child(div().flex_1().min_w(0).pl(indent).text_color(color ?? t.foreground)
           .when(l.mark === "wait", (e) => e.font_semibold()).child(text))
         .when(Boolean(link), (el) => el.child(div().id(`k-${c.terminal}-${i}`).flex_none().text_color(t.accent).cursor_pointer().tooltip(link)
-          .hover((s) => s.text_color(t.foreground)).on_click(() => exec("xdg-open", [link])).child(linkLabel(link)))));
+          .hover((s) => s.text_color(t.foreground)).on_click((_e, cx) => { cx.stop_propagation(); exec("xdg-open", [link]); }).child(linkLabel(link)))));
     });
     const box = v_flex().px(10).pb(8).gap(2).children(rows);
     if (capped) box.child(div().id(`more-${c.terminal}`).mt(4).text_size(11).text_color(t.accent).cursor_pointer()
-      .on_click((_e, cx) => { this.full[c.terminal] = true; cx.notify(); }).child(`Show all ${total} lines`));
+      .on_click((_e, cx) => { cx.stop_propagation(); this.full[c.terminal] = true; cx.notify(); }).child(`Show all ${total} lines`));
     return box;
   }
 
@@ -192,7 +192,7 @@ export default class Board extends View {
     if (!actions.length) return null;
     const bar = h_flex().flex_wrap().px(10).py(8).gap(6).border_t(1).border_color(t.border);
     actions.forEach((a, i) => bar.child(v_flex().id(`a-${c.terminal}-${i}`).max_w(260).px(8).py(4).rounded(6).border_1().border_color(t.input)
-      .cursor_pointer().hover((s) => s.bg(t.hover).border_color(t.accent)).on_click((_e, cx) => this.send(c, a.send, cx))
+      .cursor_pointer().hover((s) => s.bg(t.hover).border_color(t.accent)).on_click((_e, cx) => { cx.stop_propagation(); this.send(c, a.send, cx); })
       .child(div().font_semibold().child(clean(a.label)))
       .child(div().text_size(10).text_color(t.dim).truncate().child(`$ ${a.send}`))));
     if (this.sent[c.terminal]) bar.child(div().w_full().text_color(t.ansi1).child(this.sent[c.terminal]));
@@ -210,12 +210,14 @@ export default class Board extends View {
       .when(heat === "warm", (e) => e.bg(t.blocked + "14"))
       .when(heat === "hot", (e) => e.bg(t.blocked + "29"))
       .border_color(COLOR[col]).when(heat === "hot", (e) => e.border_2()).when(heat !== "hot", (e) => e.border_1())
-      .when(Boolean(c.stale), (e) => e.opacity(0.6));
+      .when(Boolean(c.stale), (e) => e.opacity(0.6))
+      // A click anywhere on the card goes to its console; links, buttons and folds inside stop it.
+      .cursor_pointer().hover((s) => s.border_color(t.accent)).on_click(() => this.go(c));
     card.child(h_flex().gap(8).items_center().px(10).pt(8).pb(compact ? 8 : 4)
       .child(div().flex_1().min_w(0).truncate().font_semibold().text_size(13).text_color(d ? t.foreground : t.dim).child(titleOf(c)))
       .when(Boolean(d?.phase), (el) => el.child(div().flex_none().text_color(t.accent).child(clean(d.phase))))
-      .child(div().id(`go-${c.terminal}`).flex_none().px(2).text_color(t.dim).cursor_pointer().tooltip("Go to this console")
-        .hover((s) => s.text_color(t.accent)).on_click(() => this.go(c)).child("⤢")));
+      .child(div().id(`go-${c.terminal}`).flex_none().px(2).text_color(t.dim).tooltip("Go to this console")
+        .hover((s) => s.text_color(t.accent)).child("⤢")));
     if (d && !compact) {
       card.child(this.body(c, t));
       const bar = this.actions(c, t);
@@ -226,7 +228,7 @@ export default class Board extends View {
     if (!d) foot.push(div().child("publishes nothing"));
     if (c.stale) foot.push(div().flex_none().child(`no news for ${Math.round((Date.now() - c.mtime) / 60000)} min`));
     if (d && (col === "done" || col === "idle")) foot.push(div().id(`open-${c.terminal}`).flex_none().text_color(t.accent).cursor_pointer()
-      .on_click((_e, cx) => { this.opened[c.terminal] = !this.opened[c.terminal]; cx.notify(); })
+      .on_click((_e, cx) => { cx.stop_propagation(); this.opened[c.terminal] = !this.opened[c.terminal]; cx.notify(); })
       .child(compact ? "Show panel" : "Hide panel"));
     if (foot.length) card.child(h_flex().gap(8).items_center().px(10).py(6).border_t(1).border_color(t.border)
       .text_size(11).text_color(t.dim).children(foot));
